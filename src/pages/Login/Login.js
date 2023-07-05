@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { APIS } from '../../comfig';
+import auth, { signInWithEmailAndPassword } from '../../fConfig';
 import './Login.scss';
 
 const Login = () => {
@@ -27,23 +27,29 @@ const Login = () => {
     }
   };
 
-  const login = () => {
-    if (idCondition && pwCondition) {
-      fetch(`${APIS.signin}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json;charset=utf-8' },
-        body: JSON.stringify({ email, password }),
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.message) {
-            alert(data.message);
-          } else {
-            localStorage.setItem('token', data.accessToken);
-            alert('로그인 성공');
-            navigate('/');
-          }
-        });
+  const login = async () => {
+    try {
+      let data = await signInWithEmailAndPassword(auth, email, password);
+      auth.onAuthStateChanged(user => {
+        if (user) {
+          localStorage.setItem('token', JSON.stringify(user));
+          localStorage.setItem(
+            'user',
+            JSON.stringify(user.email.substring(0, user.email.indexOf('@')))
+          );
+          navigate('/');
+        }
+      });
+    } catch (error) {
+      if (error.code === 'auth/wrong-password') {
+        alert('비밀번호가 틀립니다.');
+        setUserInfo(prevState => ({ ...prevState, password: '' }));
+      } else if (error.code === 'auth/user-not-found') {
+        alert('회원가입 해주세요');
+        navigate('/SignUp');
+      } else {
+        console.log(error);
+      }
     }
   };
 
@@ -64,6 +70,7 @@ const Login = () => {
             placeholder="이메일을 입력하세요."
             onChange={updateUserInfo}
             name="email"
+            value={email}
           />
           <input
             className="pwInput"
@@ -71,6 +78,7 @@ const Login = () => {
             placeholder="비밀번호를 입력하세요."
             onChange={updateUserInfo}
             name="password"
+            value={password}
           />
           <div className="saveEmail">
             <input type="checkbox" />
@@ -82,7 +90,7 @@ const Login = () => {
                 idCondition && pwCondition ? 'activeButton' : 'unActiveButton'
               }
               type="button"
-              disabled={email === '' || password === ''}
+              disabled={!idCondition || !pwCondition}
               onClick={login}
             >
               로그인 하기
